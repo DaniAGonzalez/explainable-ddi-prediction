@@ -436,6 +436,15 @@ async function runExplain() {
 
 function renderExplanation(data, method) {
   const body = document.getElementById('explainBody');
+    // Replace node indices with drug names in explanation
+    const replaceNodeNames = (html) => {
+      return html.replace(/Node (\d+)/g, (match, idx) => {
+        const name = drugMap[idx];
+        return name ? name + ' <span style="color:var(--muted);font-size:10px">(#' + idx + ')</span>' : match;
+      }).replace(/Drug A: (\d+)/g, (m, idx) => 'Drug A: ' + drugName(idx) + ' <span style="color:var(--muted);font-size:10px">(#' + idx + ')</span>')
+      .replace(/Drug B: (\d+)/g, (m, idx) => 'Drug B: ' + drugName(idx) + ' <span style="color:var(--muted);font-size:10px">(#' + idx + ')</span>')
+      .replace(/node (\d+)/g, (m, idx) => drugName(idx) + ' <span style="color:var(--muted);font-size:10px">(#' + idx + ')</span>');
+    };
   let html = `<div class="drug-labels">
     <div class="drug-label">Drug A: ${data.drug_a}</div>
     <div class="drug-label">Drug B: ${data.drug_b}</div>
@@ -562,6 +571,11 @@ document.addEventListener('click', function(e) {
     document.querySelectorAll('.drug-suggestions').forEach(s => s.style.display='none');
   }
 });
+
+
+function drugName(idx) {
+  return drugMap[String(idx)] || 'Drug_' + idx;
+}
 
 async function runRag() {
   const a = document.getElementById('drugA').value;
