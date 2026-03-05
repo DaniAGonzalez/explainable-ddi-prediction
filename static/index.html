@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DDI Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17;
+  --card: #111827;
+  --input: #0d1320;
+  --border: #1e293b;
+  --blue: #3b82f6;
+  --cyan: #06b6d4;
+  --emerald: #10b981;
+  --amber: #f59e0b;
+  --rose: #f43f5e;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --muted: #64748b;
+  --sans: 'DM Sans', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--sans); background:var(--bg); color:var(--text); min-height:100vh; }
+body::before {
+  content:''; position:fixed; top:-50%; left:-50%; width:200%; height:200%;
+  background: radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.04) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.03) 0%, transparent 50%);
+  z-index:-1;
+}
+
+.header {
+  padding:20px 32px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border); background:rgba(10,14,23,0.9);
+  backdrop-filter:blur(20px); position:sticky; top:0; z-index:100;
+}
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-icon {
+  width:32px; height:32px; background:linear-gradient(135deg,var(--blue),var(--cyan));
+  border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.logo h1 { font-size:17px; font-weight:700; letter-spacing:-0.02em; }
+.logo h1 span { color:var(--cyan); }
+.status {
+  display:flex; align-items:center; gap:7px; padding:5px 12px;
+  background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2);
+  border-radius:16px; font-size:12px; color:var(--emerald); font-weight:500;
+}
+.status-dot {
+  width:7px; height:7px; background:var(--emerald); border-radius:50%;
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.main { max-width:1360px; margin:0 auto; padding:28px 32px; display:grid; grid-template-columns:360px 1fr; gap:24px; }
+
+.card {
+  background:var(--card); border:1px solid var(--border); border-radius:12px;
+  padding:22px; transition:border-color 0.2s;
+}
+.card-title {
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.08em; color:var(--muted); margin-bottom:14px;
+}
+.form-group { margin-bottom:14px; }
+label { display:block; font-size:13px; font-weight:500; color:var(--text2); margin-bottom:5px; }
+select, input[type=number] {
+  width:100%; padding:9px 12px; background:var(--input); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-family:var(--sans); font-size:14px;
+  outline:none; transition:border-color 0.2s;
+}
+select:focus, input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(59,130,246,0.15); }
+.drug-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+.btn {
+  width:100%; padding:11px; border:none; border-radius:8px; font-family:var(--sans);
+  font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-primary {
+  background:linear-gradient(135deg,var(--blue),#2563eb); color:white;
+  box-shadow:0 4px 16px rgba(59,130,246,0.3); margin-top:8px;
+}
+.btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(59,130,246,0.4); }
+.btn:disabled { opacity:0.5; cursor:not-allowed; transform:none!important; }
+
+.spinner { width:15px; height:15px; border:2px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.6s linear infinite; display:none; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+.sidebar { display:flex; flex-direction:column; gap:18px; }
+.results { display:flex; flex-direction:column; gap:18px; }
+
+/* Prediction result */
+.pred-result {
+  display:flex; align-items:center; gap:28px; padding:8px 0;
+}
+.ring-wrap { position:relative; width:120px; height:120px; flex-shrink:0; }
+.ring-wrap svg { width:100%; height:100%; transform:rotate(-90deg); }
+.ring-bg { fill:none; stroke:var(--border); stroke-width:8; }
+.ring-val { fill:none; stroke:var(--blue); stroke-width:8; stroke-linecap:round; stroke-dasharray:314; stroke-dashoffset:314; transition:stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1); }
+.ring-label { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+.ring-pct { font-size:26px; font-weight:700; font-family:var(--mono); }
+.ring-sub { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+.pred-details { flex:1; }
+.pred-details .metric { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+.pred-details .metric:last-child { border:none; }
+.metric-label { font-size:13px; color:var(--text2); }
+.metric-value { font-size:13px; font-family:var(--mono); font-weight:500; }
+
+/* Attention / Perturbation results */
+.explain-section { margin-top:8px; }
+.explain-section h4 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--cyan); }
+.neighbor-bar {
+  display:flex; align-items:center; gap:10px; margin-bottom:6px; font-size:13px;
+}
+.neighbor-bar .node-id { width:70px; font-family:var(--mono); font-size:12px; color:var(--text2); }
+.bar-track { flex:1; height:22px; background:var(--input); border-radius:4px; overflow:hidden; position:relative; }
+.bar-fill { height:100%; border-radius:4px; transition:width 0.8s cubic-bezier(0.4,0,0.2,1); display:flex; align-items:center; padding-left:8px; font-size:11px; font-family:var(--mono); color:white; min-width:fit-content; }
+.bar-fill.attn { background:linear-gradient(90deg, var(--blue), var(--cyan)); }
+.bar-fill.perturb { background:linear-gradient(90deg, var(--amber), var(--rose)); }
+
+/* IG results */
+.ig-bits { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.ig-bit {
+  padding:4px 10px; border-radius:6px; font-size:12px; font-family:var(--mono);
+  border:1px solid var(--border);
+}
+.ig-bit.pos { background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.3); color:var(--emerald); }
+.ig-bit.neg { background:rgba(244,63,94,0.1); border-color:rgba(244,63,94,0.3); color:var(--rose); }
+
+/* Molecule image */
+.mol-img { margin-top:12px; background:white; border-radius:8px; padding:8px; display:inline-block; }
+.mol-img img { max-width:100%; height:auto; border-radius:4px; }
+
+/* Empty state */
+.empty {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:60px 20px; text-align:center; color:var(--muted);
+}
+.empty-icon { font-size:48px; margin-bottom:16px; opacity:0.3; }
+.empty h3 { font-size:16px; font-weight:600; color:var(--text2); margin-bottom:6px; }
+.empty p { font-size:13px; max-width:280px; }
+
+/* Model tag */
+.model-tag {
+  display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px;
+  font-weight:600; text-transform:uppercase; letter-spacing:0.03em;
+}
+.tag-gat { background:rgba(59,130,246,0.15); color:var(--blue); }
+.tag-sage { background:rgba(16,185,129,0.15); color:var(--emerald); }
+.tag-mlp { background:rgba(245,158,11,0.15); color:var(--amber); }
+
+.result-header {
+  padding:16px 22px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.result-header h3 { font-size:14px; font-weight:600; }
+.result-body { padding:22px; }
+
+/* Drug pair labels */
+.drug-labels { display:flex; gap:12px; margin-bottom:12px; }
+.drug-label {
+  padding:4px 12px; border-radius:6px; font-size:12px; font-family:var(--mono);
+  background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2); color:var(--blue);
+}
+
+@media (max-width:900px) {
+  .main { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">&#9883;</div>
+    <h1>DDI <span>Explorer</span></h1>
+  </div>
+  <div class="status" id="statusBadge">
+    <div class="status-dot"></div>
+    <span id="statusText">Connecting...</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <!-- Drug Selection -->
+    <div class="card">
+      <div class="card-title">Drug Pair</div>
+      <div class="drug-row">
+        <div class="form-group">
+          <label>Drug A (index)</label>
+          <input type="number" id="drugA" value="0" min="0" max="4266">
+        </div>
+        <div class="form-group">
+          <label>Drug B (index)</label>
+          <input type="number" id="drugB" value="100" min="0" max="4266">
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Selection -->
+    <div class="card">
+      <div class="card-title">Model</div>
+      <div class="form-group">
+        <label>Architecture</label>
+        <select id="modelSelect">
+          <option value="gat_skip_feat">GAT Skip + Features (best)</option>
+          <option value="gat_base">GAT Base</option>
+          <option value="gat_skip">GAT Skip</option>
+          <option value="gat_base_feat">GAT Base + Features</option>
+          <option value="graphsage_baseline">GraphSAGE Baseline</option>
+          <option value="graphsage_molecular">GraphSAGE Molecular</option>
+          <option value="mlp_baseline">MLP Baseline</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Explainability -->
+    <div class="card">
+      <div class="card-title">Explainability</div>
+      <div class="form-group">
+        <label>Method</label>
+        <select id="methodSelect">
+          <option value="attention">Attention Weights</option>
+          <option value="perturbation">Perturbation Analysis</option>
+          <option value="integrated_gradients">Integrated Gradients</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Top K neighbors</label>
+        <input type="number" id="topK" value="5" min="1" max="20">
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card" style="padding:16px 22px;">
+      <button class="btn btn-primary" id="btnPredict" onclick="runPrediction()">
+        <span>Run Prediction</span>
+        <div class="spinner" id="spinPredict"></div>
+      </button>
+      <div style="height:8px"></div>
+      <button class="btn btn-primary" id="btnExplain" onclick="runExplain()" style="background:linear-gradient(135deg,var(--cyan),#0891b2); box-shadow:0 4px 16px rgba(6,182,212,0.3);">
+        <span>Run Explanation</span>
+        <div class="spinner" id="spinExplain"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results">
+    <div id="predResult" class="card" style="display:none;">
+      <div class="result-header">
+        <h3>Prediction</h3>
+        <span class="model-tag" id="predModelTag"></span>
+      </div>
+      <div class="result-body">
+        <div class="drug-labels" id="predDrugLabels"></div>
+        <div class="pred-result">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="50"/>
+              <circle class="ring-val" id="ringValue" cx="60" cy="60" r="50"/>
+            </svg>
+            <div class="ring-label">
+              <div class="ring-pct" id="pctValue">—</div>
+              <div class="ring-sub">probability</div>
+            </div>
+          </div>
+          <div class="pred-details">
+            <div class="metric"><span class="metric-label">Probability</span><span class="metric-value" id="metricProb">—</span></div>
+            <div class="metric"><span class="metric-label">Raw Score</span><span class="metric-value" id="metricRaw">—</span></div>
+            <div class="metric"><span class="metric-label">Model</span><span class="metric-value" id="metricModel">—</span></div>
+            <div class="metric"><span class="metric-label">Interaction</span><span class="metric-value" id="metricInteraction">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="explainResult" class="card" style="display:none;">
+      <div class="result-header">
+        <h3>Explanation</h3>
+        <span class="model-tag" id="explainMethodTag"></span>
+      </div>
+      <div class="result-body" id="explainBody"></div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="card">
+      <div class="empty">
+        <div class="empty-icon">&#9883;</div>
+        <h3>Select a drug pair</h3>
+        <p>Choose two drug indices and a model, then click "Run Prediction" to see interaction probability and explanations.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+
+// Check API health on load
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const d = await r.json();
+    document.getElementById('statusText').textContent = `${d.models_loaded} models loaded`;
+    document.getElementById('statusBadge').style.borderColor = 'rgba(16,185,129,0.2)';
+  } catch(e) {
+    document.getElementById('statusText').textContent = 'API offline';
+    document.getElementById('statusBadge').style.borderColor = 'rgba(244,63,94,0.2)';
+    document.getElementById('statusBadge').style.background = 'rgba(244,63,94,0.1)';
+    document.querySelector('.status-dot').style.background = '#f43f5e';
+    document.getElementById('statusText').style.color = '#f43f5e';
+  }
+}
+checkHealth();
+
+function getModelTag(name) {
+  if (name.startsWith('gat')) return '<span class="model-tag tag-gat">GAT</span>';
+  if (name.startsWith('graph')) return '<span class="model-tag tag-sage">SAGE</span>';
+  return '<span class="model-tag tag-mlp">MLP</span>';
+}
+
+function setLoading(btnId, spinId, loading) {
+  const btn = document.getElementById(btnId);
+  const spin = document.getElementById(spinId);
+  btn.disabled = loading;
+  spin.style.display = loading ? 'block' : 'none';
+}
+
+async function runPrediction() {
+  const drugA = parseInt(document.getElementById('drugA').value);
+  const drugB = parseInt(document.getElementById('drugB').value);
+  const model = document.getElementById('modelSelect').value;
+
+  setLoading('btnPredict', 'spinPredict', true);
+  document.getElementById('emptyState').style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ drug_a: drugA, drug_b: drugB, model_name: model })
+    });
+    const d = await r.json();
+
+    if (r.ok) {
+      document.getElementById('predResult').style.display = 'block';
+      document.getElementById('predModelTag').outerHTML = getModelTag(model);
+      document.getElementById('predDrugLabels').innerHTML =
+        `<div class="drug-label">Drug A: ${d.drug_a}</div><div class="drug-label">Drug B: ${d.drug_b}</div>`;
+
+      const pct = (d.probability * 100).toFixed(1);
+      document.getElementById('pctValue').textContent = pct + '%';
+      document.getElementById('metricProb').textContent = d.probability.toFixed(6);
+      document.getElementById('metricRaw').textContent = d.raw_score.toFixed(6);
+      document.getElementById('metricModel').textContent = model;
+      document.getElementById('metricInteraction').textContent = d.probability > 0.5 ? 'Likely' : 'Unlikely';
+      document.getElementById('metricInteraction').style.color = d.probability > 0.5 ? '#10b981' : '#f59e0b';
+
+      // Animate ring
+      const circumference = 2 * Math.PI * 50; // r=50
+      const offset = circumference * (1 - d.probability);
+      const ring = document.getElementById('ringValue');
+      ring.style.strokeDasharray = circumference;
+      setTimeout(() => { ring.style.strokeDashoffset = offset; }, 50);
+      ring.style.stroke = d.probability > 0.5 ? '#10b981' : d.probability > 0.2 ? '#3b82f6' : '#f59e0b';
+    } else {
+      alert('Error: ' + (d.detail || JSON.stringify(d)));
+    }
+  } catch(e) {
+    alert('API error: ' + e.message);
+  }
+  setLoading('btnPredict', 'spinPredict', false);
+}
+
+async function runExplain() {
+  const drugA = parseInt(document.getElementById('drugA').value);
+  const drugB = parseInt(document.getElementById('drugB').value);
+  const model = document.getElementById('modelSelect').value;
+  const method = document.getElementById('methodSelect').value;
+  const topK = parseInt(document.getElementById('topK').value);
+
+  setLoading('btnExplain', 'spinExplain', true);
+  document.getElementById('emptyState').style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/explain`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        drug_a: drugA, drug_b: drugB, model_name: model,
+        method: method, top_k: topK, include_visualization: true
+      })
+    });
+    const d = await r.json();
+
+    if (r.ok) {
+      document.getElementById('explainResult').style.display = 'block';
+      document.getElementById('explainMethodTag').outerHTML =
+        `<span class="model-tag tag-gat">${method.replace('_',' ')}</span>`;
+      renderExplanation(d, method);
+    } else {
+      alert('Error: ' + (d.detail || JSON.stringify(d)));
+    }
+  } catch(e) {
+    alert('API error: ' + e.message + '. Integrated Gradients can be slow on CPU — try attention or perturbation first.');
+  }
+  setLoading('btnExplain', 'spinExplain', false);
+}
+
+function renderExplanation(data, method) {
+  const body = document.getElementById('explainBody');
+  let html = `<div class="drug-labels">
+    <div class="drug-label">Drug A: ${data.drug_a}</div>
+    <div class="drug-label">Drug B: ${data.drug_b}</div>
+  </div>`;
+
+  if (method === 'attention') {
+    const layers = data.analysis.layers;
+    layers.forEach(layer => {
+      html += `<div class="explain-section"><h4>Layer ${layer.layer}</h4>`;
+      ['drug_a', 'drug_b'].forEach(dk => {
+        const info = layer[dk];
+        if (!info) return;
+        const label = dk === 'drug_a' ? 'Drug A' : 'Drug B';
+        html += `<div style="font-size:12px;color:var(--text2);margin:8px 0 4px;">${label} — ${info.num_neighbors} neighbors</div>`;
+        const maxAttn = info.top_neighbors.length > 0 ? info.top_neighbors[0].attention : 1;
+        info.top_neighbors.forEach(n => {
+          const w = Math.max(5, (n.attention / maxAttn) * 100);
+          html += `<div class="neighbor-bar">
+            <span class="node-id">Node ${n.node_id}</span>
+            <div class="bar-track"><div class="bar-fill attn" style="width:${w}%">${n.attention.toFixed(4)}</div></div>
+          </div>`;
+        });
+      });
+      html += '</div>';
+    });
+  }
+
+  else if (method === 'perturbation') {
+    const a = data.analysis;
+    html += `<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">
+      Base score: <span style="font-family:var(--mono);color:var(--text)">${a.base_score}</span> &nbsp;|&nbsp;
+      Common neighbors: <span style="font-family:var(--mono);color:var(--text)">${a.num_common_neighbors}</span>
+    </div>`;
+    html += '<div class="explain-section"><h4>Most Influential Neighbors (by prediction delta)</h4>';
+    const maxDelta = a.top_neighbors.length > 0 ? a.top_neighbors[0].delta : 1;
+    a.top_neighbors.forEach(n => {
+      const w = Math.max(5, (n.delta / maxDelta) * 100);
+      html += `<div class="neighbor-bar">
+        <span class="node-id">Node ${n.node_id}</span>
+        <div class="bar-track"><div class="bar-fill perturb" style="width:${w}%">Δ ${n.delta.toFixed(4)}</div></div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  else if (method === 'integrated_gradients') {
+    const a = data.analysis;
+    ['drug_a', 'drug_b'].forEach(dk => {
+      const info = a[dk];
+      if (!info) return;
+      const label = dk === 'drug_a' ? 'Drug A' : 'Drug B';
+      html += `<div class="explain-section"><h4>${label} (node ${info.node_id}) — Total attribution: ${info.total_attribution}</h4>`;
+      html += '<div style="font-size:12px;color:var(--text2);margin:4px 0;">Top positive bits (promote interaction):</div><div class="ig-bits">';
+      info.top_positive_bits.forEach(b => {
+        html += `<div class="ig-bit pos">bit ${b.bit}: ${b.attribution.toFixed(4)}</div>`;
+      });
+      html += '</div>';
+      html += '<div style="font-size:12px;color:var(--text2);margin:8px 0 4px;">Top negative bits (inhibit interaction):</div><div class="ig-bits">';
+      info.top_negative_bits.forEach(b => {
+        html += `<div class="ig-bit neg">bit ${b.bit}: ${b.attribution.toFixed(4)}</div>`;
+      });
+      html += '</div></div>';
+    });
+
+    // Molecular visualizations
+    if (data.visualizations) {
+      html += '<div class="explain-section"><h4>Molecular Structure Attributions</h4>';
+      Object.entries(data.visualizations).forEach(([dk, viz]) => {
+        const label = dk === 'drug_a' ? 'Drug A' : 'Drug B';
+        html += `<div style="margin-top:10px;">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">${label}: ${viz.smiles}</div>
+          <div class="mol-img"><img src="data:image/png;base64,${viz.image_base64}" alt="${label} structure"></div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+  }
+
+  body.innerHTML = html;
+
+  // Animate bars
+  setTimeout(() => {
+    body.querySelectorAll('.bar-fill').forEach(el => {
+      const w = el.style.width;
+      el.style.width = '0%';
+      setTimeout(() => { el.style.width = w; }, 50);
+    });
+  }, 10);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  ddi-api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount checkpoints so you don't rebuild image when swapping models
+      - ./checkpoints:/app/checkpoints
+      - ./data:/app/data
+    environment:
+      - DEVICE=cpu
+      - LOG_LEVEL=info
+    restart: unless-stopped
