@@ -246,6 +246,11 @@ select:focus, input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(
         <span>Run Explanation</span>
         <div class="spinner" id="spinExplain"></div>
       </button>
+      <div style="height:8px"></div>
+      <button class="btn btn-primary" id="btnRag" onclick="runRag()" style="background:linear-gradient(135deg,#10b981,#059669); box-shadow:0 4px 16px rgba(16,185,129,0.3);">
+        <span>RAG Explanation</span>
+        <div class="spinner" id="spinRag"></div>
+      </button>
     </div>
   </div>
 
@@ -285,6 +290,14 @@ select:focus, input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(
         <span class="model-tag" id="explainMethodTag"></span>
       </div>
       <div class="result-body" id="explainBody"></div>
+    </div>
+
+    <div id="ragResult" class="card" style="display:none;">
+      <div class="result-header">
+        <h3>RAG Explanation</h3>
+        <span class="model-tag" style="background:rgba(16,185,129,0.15);color:#10b981;">Claude + DrugBank + PubChem + DailyMed</span>
+      </div>
+      <div class="result-body" id="ragBody" style="white-space:pre-wrap;line-height:1.7;font-size:13px;"></div>
     </div>
 
     <!-- Empty state -->
@@ -502,6 +515,40 @@ function renderExplanation(data, method) {
       setTimeout(() => { el.style.width = w; }, 50);
     });
   }, 10);
+}
+
+async function runRag() {
+  const a = document.getElementById('drugA').value;
+  const b = document.getElementById('drugB').value;
+  const model = document.getElementById('modelSelect').value;
+  if (!a || !b) return alert('Enter both drug indices');
+
+  document.getElementById('btnRag').querySelector('span').style.display='none';
+  document.getElementById('spinRag').style.display='block';
+  document.getElementById('emptyState').style.display='none';
+
+  try {
+    const r = await fetch(`${API}/rag`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({drug_a:+a, drug_b:+b, model_name:model})
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+
+    document.getElementById('ragResult').style.display = 'block';
+    const body = document.getElementById('ragBody');
+    const drugA = d.drug_a ? d.drug_a.name : `Drug ${a}`;
+    const drugB = d.drug_b ? d.drug_b.name : `Drug ${b}`;
+    const prob = d.prediction ? (d.prediction * 100).toFixed(2) + '%' : 'N/A';
+    body.innerHTML = `<div style="margin-bottom:12px;padding:10px;background:rgba(16,185,129,0.08);border-radius:8px;border-left:3px solid #10b981;">` +
+      `<strong>${drugA}</strong> + <strong>${drugB}</strong> | Probability: <strong>${prob}</strong></div>` +
+      `<div>${d.explanation || 'No explanation generated.'}</div>`;
+  } catch(e) {
+    alert('RAG error: ' + e.message);
+  }
+
+  document.getElementById('btnRag').querySelector('span').style.display='';
+  document.getElementById('spinRag').style.display='none';
 }
 </script>
 </body>
