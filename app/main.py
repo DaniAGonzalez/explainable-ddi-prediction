@@ -302,3 +302,14 @@ def rag_explain(req: PredictRequest):
         probability = torch.sigmoid(torch.tensor(raw_score)).item()
 
     return generate_explanation(req.drug_a, req.drug_b, probability)
+
+
+@app.get("/drugs")
+def list_drugs():
+    """Return drug index to name mapping for search."""
+    import json, os
+    path = "data/rag/idx_to_name.json"
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return {}

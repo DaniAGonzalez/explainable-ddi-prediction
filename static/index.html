@@ -110,6 +110,15 @@ select:focus, input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(
 .metric-value { font-size:13px; font-family:var(--mono); font-weight:500; }
 
 /* Attention / Perturbation results */
+
+.drug-search { position:relative; }
+.drug-search input { width:100%; padding:10px 12px; background:var(--input); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--mono); font-size:13px; }
+.drug-search input:focus { outline:none; border-color:var(--blue); }
+.drug-suggestions { position:absolute; top:100%; left:0; right:0; background:var(--card); border:1px solid var(--border); border-radius:0 0 8px 8px; max-height:200px; overflow-y:auto; z-index:50; display:none; }
+.drug-suggestions div { padding:8px 12px; cursor:pointer; font-size:12px; color:var(--text2); }
+.drug-suggestions div:hover { background:rgba(59,130,246,0.1); color:var(--text); }
+.drug-suggestions div span.idx { color:var(--muted); font-family:var(--mono); font-size:11px; margin-right:6px; }
+
 .explain-section { margin-top:8px; }
 .explain-section h4 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--cyan); }
 .neighbor-bar {
@@ -192,11 +201,11 @@ select:focus, input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(
       <div class="drug-row">
         <div class="form-group">
           <label>Drug A (index)</label>
-          <input type="number" id="drugA" value="0" min="0" max="4266">
+          <div class="drug-search"><input type="text" id="drugASearch" placeholder="Type drug name..." oninput="searchDrug(this,'A')" onfocus="searchDrug(this,'A')" autocomplete="off"><div class="drug-suggestions" id="suggestA"></div></div><input type="hidden" id="drugA" value="0" min="0" max="4266">
         </div>
         <div class="form-group">
           <label>Drug B (index)</label>
-          <input type="number" id="drugB" value="100" min="0" max="4266">
+          <div class="drug-search"><input type="text" id="drugBSearch" placeholder="Type drug name..." oninput="searchDrug(this,'B')" onfocus="searchDrug(this,'B')" autocomplete="off"><div class="drug-suggestions" id="suggestB"></div></div><input type="hidden" id="drugB" value="100" min="0" max="4266">
         </div>
       </div>
     </div>
@@ -516,6 +525,43 @@ function renderExplanation(data, method) {
     });
   }, 10);
 }
+
+
+let drugMap = {};
+async function loadDrugs() {
+  try {
+    const r = await fetch(`${API}/drugs`);
+    drugMap = await r.json();
+    console.log(`Loaded ${Object.keys(drugMap).length} drug names`);
+  } catch(e) { console.warn('Could not load drug names'); }
+}
+loadDrugs();
+
+function searchDrug(input, which) {
+  const q = input.value.toLowerCase();
+  const box = document.getElementById('suggest' + which);
+  if (q.length < 2) { box.style.display='none'; return; }
+  const matches = Object.entries(drugMap).filter(([idx,name]) => 
+    name.toLowerCase().includes(q)
+  ).slice(0, 15);
+  if (matches.length === 0) { box.style.display='none'; return; }
+  box.innerHTML = matches.map(([idx,name]) => 
+    `<div onclick="selectDrug('${which}','${idx}','${name.replace(/'/g,"\\'")}')"><span class="idx">#${idx}</span>${name}</div>`
+  ).join('');
+  box.style.display='block';
+}
+
+function selectDrug(which, idx, name) {
+  document.getElementById('drug' + which).value = idx;
+  document.getElementById('drug' + which + 'Search').value = name + ' (#' + idx + ')';
+  document.getElementById('suggest' + which).style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.drug-search')) {
+    document.querySelectorAll('.drug-suggestions').forEach(s => s.style.display='none');
+  }
+});
 
 async function runRag() {
   const a = document.getElementById('drugA').value;
