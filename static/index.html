@@ -523,7 +523,7 @@ function renderExplanation(data, method) {
     }
   }
 
-  body.innerHTML = html;
+  body.innerHTML = replaceNodeNames(html);
 
   // Animate bars
   setTimeout(() => {
