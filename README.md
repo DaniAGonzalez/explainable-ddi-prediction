@@ -134,4 +134,4 @@ The API must be running before executing the test suite.
 ## Author
 
 Dr. Daniela A. Gonzalez  
-DS 5500 Capstone — Northeastern University, Khoury College of Computer Sciences
+EAI - Northeastern University
